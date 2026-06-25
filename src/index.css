@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Playfair Display",Georgia,serif;
+  --font-sans: "Hanken Grotesk",system-ui,sans-serif;
+  --font-mono: "JetBrains Mono",monospace;
+
+  --color-primary: #121212;
+  --color-on-primary: #ffffff;
+  --color-secondary: #775A19;
+  --color-surface-container: #fbf9f8;
+  --color-surface-container-low: #efeded;
+  --color-surface-container-high: #e5e2e1;
+  --color-on-surface-variant: #444748;
+  --color-outline-variant: #c4c7c7;
+}
+
+/* Custom Scrollbars to keep editorial aesthetic */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #fbf9f8;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c4c7c7;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #775A19;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #FBF9F8;
+  color: #121212;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, .font-display-lg, .font-display-md {
+  font-family: var(--font-display);
+}

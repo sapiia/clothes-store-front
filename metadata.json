@@ -1,0 +1,6 @@
+{
+  "name": "Luxe Fashion E-Commerce System",
+  "description": "A high-performance full-stack e-commerce system featuring an elegant customer storefront, a comprehensive administrative dashboard, and an interactive API playground.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
