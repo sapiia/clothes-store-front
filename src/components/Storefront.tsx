@@ -81,6 +81,10 @@ export default function Storefront({
   const [profilePwd, setProfilePwd] = useState('');
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
 
+  // After-auth redirect for order intent while not logged in
+  const [postAuthRedirect, setPostAuthRedirect] = useState<'checkout' | 'instantOrder' | null>(null);
+  const [pendingInstantProduct, setPendingInstantProduct] = useState<Product | null>(null);
+
   // Extra Navigation & Editorial States
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollectionsDropdownOpen, setIsCollectionsDropdownOpen] = useState(false);
@@ -140,6 +144,13 @@ export default function Storefront({
   const [instantRegError, setInstantRegError] = useState('');
 
   const handleOpenInstantOrder = (product: Product) => {
+    if (!currentUser) {
+      setPendingInstantProduct(product);
+      setPostAuthRedirect('instantOrder');
+      setAuthMode('register');
+      setCurrentPage('auth');
+      return;
+    }
     setInstantOrderProduct(product);
     setInstantSize(product.sizes[0] || 'S');
     setInstantColor(product.colors[0] || 'Off-White');
@@ -154,13 +165,12 @@ export default function Storefront({
     setInstantRegError('');
   };
 
-  const handleInstantRegisterAndContinue = () => {
+  const handleInstantRegisterAndContinue = async () => {
     setInstantRegError('');
     if (!instantName || !instantEmail || !instantPassword || !instantAddress) {
       setInstantRegError('All registration fields are required to continue.');
       return;
     }
-    // Simple email pattern check
     if (!instantEmail.includes('@')) {
       setInstantRegError('Please provide a valid email address.');
       return;
@@ -170,16 +180,41 @@ export default function Storefront({
       return;
     }
 
-    addAxiosLog('POST', '/register', 201, 'auth');
-    const user: User = { 
-      id: Date.now(), 
-      name: instantName, 
-      email: instantEmail, 
-      role: 'customer', 
-      created_at: new Date().toISOString().split('T')[0] 
-    };
-    onSimulateRegister(user, '4|new_luxe_sanctum_user_key_7718e9');
-    setInstantRegStep('payment');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: instantName,
+          email: instantEmail,
+          password: instantPassword,
+          password_confirmation: instantPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = Object.values(data?.errors || data?.messages || {}).flat().shift() || data?.message || 'Registration failed';
+        throw new Error(msg);
+      }
+
+      addAxiosLog('POST', '/register', res.status, 'auth');
+
+      const u: User = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        created_at: data.user.created_at,
+      };
+
+      onSimulateRegister(u, `${data.token_type} ${data.access_token}`);
+      setInstantRegStep('payment');
+      setInstantAddress('');
+    } catch (err: any) {
+      setInstantRegError(err.message || 'Registration failed');
+    }
   };
 
   const handleInstantOrderSubmit = (e: React.FormEvent) => {
@@ -219,38 +254,123 @@ export default function Storefront({
   };
 
   // Auth Functions
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
 
-    if (authMode === 'login') {
-      addAxiosLog('POST', '/login', 200, 'auth');
-      if (authEmail === 'admin@luxe.com') {
-        const admin: User = { id: 1, name: 'Admin User', email: 'admin@luxe.com', role: 'admin', created_at: '2024-01-01' };
-        onSimulateLogin(admin, '1|admin_sanctum_key_token_9823s1');
-        setCurrentPage('home');
-      } else {
-        const matchedEmail = authEmail || 'jessica@example.com';
-        const user: User = { 
-          id: 2, 
-          name: matchedEmail.split('@')[0].toUpperCase(), 
-          email: matchedEmail, 
-          role: 'customer', 
-          created_at: '2024-02-15' 
+    try {
+      if (authMode === 'login') {
+        const res = await fetch('http://127.0.0.1:8000/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email: authEmail, password: authPassword }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.message || 'Login failed');
+        }
+
+        addAxiosLog('POST', '/login', res.status, 'auth');
+        const u: User = {
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role: data.user.role,
+          created_at: data.user.created_at,
         };
-        onSimulateLogin(user, '3|luxe_customer_sanctum_token_88712a');
-        setCurrentPage('home');
+        onSimulateLogin(u, `${data.token_type} ${data.access_token}`);
+
+        const redirectTo = postAuthRedirect || 'home';
+        setCurrentPage(redirectTo);
+        setPostAuthRedirect(null);
+
+        if (redirectTo === 'checkout') {
+          setCheckoutName(u.name);
+          setCheckoutEmail(u.email);
+        }
+
+        if (redirectTo === 'instantOrder' && pendingInstantProduct) {
+          setInstantOrderProduct(pendingInstantProduct);
+          setInstantSize(pendingInstantProduct.sizes[0] || 'S');
+          setInstantColor(pendingInstantProduct.colors[0] || 'Off-White');
+          setInstantQty(1);
+          setInstantName(u.name);
+          setInstantEmail(u.email);
+          setInstantPassword('');
+          setInstantAddress('');
+          setInstantCard('4200 1234 5678 9012');
+          setShowInstantSuccess(false);
+          setInstantRegStep('payment');
+          setInstantRegError('');
+          setPendingInstantProduct(null);
+        }
+
+        return;
       }
-    } else {
+
+      // Registration
       if (!authName || !authEmail || !authPassword) {
         setAuthError('All registration fields are required.');
         addAxiosLog('POST', '/register', 422, 'auth');
         return;
       }
-      addAxiosLog('POST', '/register', 201, 'auth');
-      const user: User = { id: Date.now(), name: authName, email: authEmail, role: 'customer', created_at: '2026-06-19' };
-      onSimulateRegister(user, '4|new_luxe_sanctum_user_key_7718e9');
-      setCurrentPage('home');
+
+      const res = await fetch('http://127.0.0.1:8000/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: authName,
+          email: authEmail,
+          password: authPassword,
+          password_confirmation: authPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = Object.values(data?.errors || data?.messages || {}).flat().shift() || data?.message || 'Registration failed';
+        throw new Error(msg);
+      }
+
+      addAxiosLog('POST', '/register', res.status, 'auth');
+      const u: User = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        created_at: data.user.created_at,
+      };
+      onSimulateRegister(u, `${data.token_type} ${data.access_token}`);
+
+      const redirectTo = postAuthRedirect || 'home';
+      setCurrentPage(redirectTo);
+      setPostAuthRedirect(null);
+
+      if (redirectTo === 'checkout') {
+        setCheckoutName(u.name);
+        setCheckoutEmail(u.email);
+      }
+
+      if (redirectTo === 'instantOrder' && pendingInstantProduct) {
+        setInstantOrderProduct(pendingInstantProduct);
+        setInstantSize(pendingInstantProduct.sizes[0] || 'S');
+        setInstantColor(pendingInstantProduct.colors[0] || 'Off-White');
+        setInstantQty(1);
+        setInstantName(u.name);
+        setInstantEmail(u.email);
+        setInstantPassword('');
+        setInstantAddress('');
+        setInstantCard('4200 1234 5678 9012');
+        setShowInstantSuccess(false);
+        setInstantRegStep('payment');
+        setInstantRegError('');
+        setPendingInstantProduct(null);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Authentication error');
     }
   };
 
@@ -263,13 +383,14 @@ export default function Storefront({
   // Toggle checkout transition
   const handleCheckoutClick = () => {
     if (!currentUser) {
+      setPostAuthRedirect('checkout');
       setAuthMode('login');
       setCurrentPage('auth');
-    } else {
-      setCheckoutName(currentUser.name);
-      setCheckoutEmail(currentUser.email);
-      setCurrentPage('checkout');
+      return;
     }
+    setCheckoutName(currentUser.name);
+    setCheckoutEmail(currentUser.email);
+    setCurrentPage('checkout');
   };
 
   // Perform checkout
@@ -355,7 +476,7 @@ export default function Storefront({
         if (!inRange) return false;
       }
 
-      return p.status === 'active' || p.status === 'limited';
+      return true;
     }).sort((a, b) => {
       if (sortBy === 'Price: Low to High') return a.price - b.price;
       if (sortBy === 'Price: High to Low') return b.price - a.price;

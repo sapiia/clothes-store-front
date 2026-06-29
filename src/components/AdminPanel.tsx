@@ -87,6 +87,8 @@ export default function AdminPanel({
   const [prodSku, setProdSku] = useState('');
   const [prodDescription, setProdDescription] = useState('');
   const [prodImage, setProdImage] = useState('');
+  const [prodRating, setProdRating] = useState(5);
+  const [prodSizes, setProdSizes] = useState<string[]>(['XS', 'S', 'M', 'L']);
   const [isUploadingMock, setIsUploadingMock] = useState(false);
 
   // Add Category Modal States
@@ -114,6 +116,8 @@ export default function AdminPanel({
       setProdSku(prod.sku);
       setProdDescription(prod.description);
       setProdImage(prod.image);
+      setProdRating(prod.rating);
+      setProdSizes(prod.sizes.length > 0 ? prod.sizes : ['XS', 'S', 'M', 'L']);
     } else {
       setEditingProduct(null);
       setProdTitle('');
@@ -123,6 +127,8 @@ export default function AdminPanel({
       setProdSku(`LX-${Date.now().toString().slice(-4)}`);
       setProdDescription('Fine-grade wool and silk materials designed for daily luxury styling.');
       setProdImage('https://lh3.googleusercontent.com/aida-public/AB6AXuBqDFRyp36hV40eaq8CyzKk79mK4uD79oksxaL3WVc9b5TAgPzr2WvFhIzKGtLOzvWoUOGOHKgfoCkr_MEL7s6UTO66uA1QdS7NDPRoNnFUhdtrZtxT0PAlq3JmnHnn9vL_ucWfFt30k9g265rYWXy8eqB4u7KFoHfa63ms-gLkjuGRNu-BSfOvzdsfIrZ3ILL3qsTT36VFwcN9x40zOyaULlvMFExPbup4aHbxbMbgtZvLk-yinJqzxvU_nX31pvvGNWvnYG53j2Ql');
+      setProdRating(5);
+      setProdSizes(['XS', 'S', 'M', 'L']);
     }
     setShowProductModal(true);
   };
@@ -158,6 +164,8 @@ export default function AdminPanel({
         stock: prodStock,
         description: prodDescription,
         image: prodImage,
+        rating: prodRating,
+        sizes: prodSizes,
         status: prodStock === 0 ? 'archive' : (prodStock <= 15 ? 'limited' : 'active')
       };
       onUpdateProduct(updated);
@@ -170,10 +178,10 @@ export default function AdminPanel({
         category: prodCategory,
         stock: prodStock,
         image: prodImage,
-        rating: 5,
+        rating: prodRating,
         status: prodStock <= 15 ? 'limited' : 'active',
         description: prodDescription,
-        sizes: ['XS', 'S', 'M', 'L'],
+        sizes: prodSizes,
         colors: ['Charcoal', 'Off-White'],
         reviews: []
       };
@@ -674,6 +682,47 @@ export default function AdminPanel({
                   rows={2}
                   className="w-full bg-[#fbf9f8] border border-outline-variant p-2 rounded outline-none"
                 />
+              </div>
+
+              {/* Rating Field */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Product Rating (1-5)</label>
+                <select 
+                  value={prodRating} 
+                  onChange={(e) => setProdRating(parseInt(e.target.value))}
+                  className="w-full bg-[#fbf9f8] border border-outline-variant p-2 rounded outline-none"
+                >
+                  <option value={1}>1 Star</option>
+                  <option value={2}>2 Stars</option>
+                  <option value={3}>3 Stars</option>
+                  <option value={4}>4 Stars</option>
+                  <option value={5}>5 Stars</option>
+                </select>
+              </div>
+
+              {/* Sizes Field */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Available Sizes</label>
+                <div className="flex flex-wrap gap-2">
+                  {['XS', 'S', 'M', 'L', 'XL', 'One Size'].map(size => (
+                    <label key={size} className="flex items-center gap-1 text-[10px] cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={prodSizes.includes(size)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setProdSizes([...prodSizes, size]);
+                          } else {
+                            setProdSizes(prodSizes.filter(s => s !== size));
+                          }
+                        }}
+                        className="w-3 h-3"
+                      />
+                      <span className="font-mono text-[11px]">{size}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-on-surface-variant mt-1">Selected: {prodSizes.join(', ') || 'None'}</p>
               </div>
 
               {/* Upload image box following guidelines style */}

@@ -50,13 +50,13 @@ export default function App() {
     const saved = localStorage.getItem('luxe_user_session');
     if (saved) return JSON.parse(saved);
     // Pre-seed with gorgeous logged-in session for Jessica by default so students can see protected pages right away
-    return initialUsers[1]; 
+    return null; 
   });
 
   const [authToken, setAuthToken] = useState<string | null>(() => {
     const saved = localStorage.getItem('luxe_sanctum_key');
     if (saved) return saved;
-    return '3|luxe_customer_sanctum_token_88712a'; // Seeded default matching Jessica
+    return null;
   });
 
   // Code Hub inspection drawer state
@@ -103,6 +103,42 @@ export default function App() {
       localStorage.removeItem('luxe_sanctum_key');
     }
   }, [authToken]);
+
+  // Load real data from backend API on mount so the storefront reflects the database
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const base = 'http://127.0.0.1:8000/api';
+        const [catRes, prodRes] = await Promise.all([
+          fetch(`${base}/categories`),
+          fetch(`${base}/products?all=true`),
+        ]);
+
+        if (cancelled) return;
+
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          if (Array.isArray(catData) && catData.length) setCategories(catData);
+        }
+
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (Array.isArray(prodData) && prodData.length) setProducts(prodData);
+        }
+      } catch (e) {
+        // keep initialData if backend is unreachable
+        console.warn('Failed to load backend data:', e);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Handle keyboard ESC to close code drawer
   useEffect(() => {
