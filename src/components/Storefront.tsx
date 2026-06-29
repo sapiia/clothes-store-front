@@ -14,7 +14,7 @@ interface StorefrontProps {
   onUpdateCartQty: (itemId: number, qty: number) => void;
   onRemoveCartItem: (itemId: number) => void;
   onToggleWishlist: (productId: number) => void;
-  onCheckout: (customerName: string, customerEmail: string) => void;
+  onCheckout: (customerName: string, customerEmail: string) => Promise<void>;
   onSimulateLogin: (user: User, token: string) => void;
   onSimulateRegister: (user: User, token: string) => void;
   onSimulateLogout: () => void;
@@ -217,7 +217,7 @@ export default function Storefront({
     }
   };
 
-  const handleInstantOrderSubmit = (e: React.FormEvent) => {
+  const handleInstantOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
       handleInstantRegisterAndContinue();
@@ -232,7 +232,7 @@ export default function Storefront({
     onAddToCart(instantOrderProduct, instantSize, instantColor);
 
     // Commit dynamic checkout
-    onCheckout(instantName, instantEmail);
+    await onCheckout(instantName, instantEmail);
 
     setOrderedProductForSuccess(instantOrderProduct);
     setShowInstantSuccess(true);
@@ -394,11 +394,11 @@ export default function Storefront({
   };
 
   // Perform checkout
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutName || !checkoutEmail || !checkoutAddress) return;
     addAxiosLog('POST', '/checkout', 201, 'checkout');
-    onCheckout(checkoutName, checkoutEmail);
+    await onCheckout(checkoutName, checkoutEmail);
     setCurrentPage('orders');
   };
 

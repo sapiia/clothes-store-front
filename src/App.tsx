@@ -203,14 +203,46 @@ export default function App() {
     setWishlistIds(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
 
-  const handleCheckoutCommit = (name: string, email: string) => {
-    const ordNum = `LX-901${orders.length + 20}`;
+  const handleCheckoutCommit = async (name: string, email: string) => {
+    let orderNumber = `LX-901${orders.length + 20}`;
+    let totalP = cart.reduce((tot, item) => tot + (item.product.price * item.quantity), 0) + (cart.reduce((tot, item) => tot + (item.product.price * item.quantity), 0) > 50 ? 0 : 15);
+
+    if (currentUser && authToken) {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            Authorization: authToken,
+          },
+          body: JSON.stringify({
+            customer_name: name,
+            customer_email: email,
+            cart: cart.map(it => ({
+              product_id: it.product.id,
+              quantity: it.quantity,
+              size: it.size,
+              color: it.color,
+            })),
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          orderNumber = data.order_number || orderNumber;
+          totalP = (data.total ?? totalP) as number;
+        }
+      } catch (err) {
+        console.error('Checkout failed', err);
+      }
+    }
+
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const totalP = cart.reduce((tot, item) => tot + (item.product.price * item.quantity), 0) + (cart.reduce((tot, item) => tot + (item.product.price * item.quantity), 0) > 50 ? 0 : 15);
 
     const newOrder: Order = {
       id: Date.now(),
-      order_number: ordNum,
+      order_number: orderNumber,
       customer_name: name,
       customer_email: email,
       date: dateStr,
@@ -223,12 +255,12 @@ export default function App() {
         price: it.product.price,
         quantity: it.quantity,
         size: it.size,
-        color: it.color
-      }))
+        color: it.color,
+      })),
     };
 
     setOrders(prev => [...prev, newOrder]);
-    
+
     // Decrement stock for purchase
     setProducts(prev => prev.map(p => {
       const cartItem = cart.find(c => c.product.id === p.id);
